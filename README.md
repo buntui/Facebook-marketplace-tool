@@ -1,66 +1,75 @@
 # Facebook Marketplace Deal Finder
 
-A phone-first Facebook Marketplace search and deal-ranking app built with Next.js, TypeScript, Tailwind, and GitHub Codespaces.
+A phone-first PWA that automatically searches Facebook Marketplace through a Browserbase cloud browser, extracts the listings visible to your own authenticated Facebook account, looks up MSRP references on the web, and ranks the strongest discount first.
 
-## Current features
+## What it does
 
-- Facebook Marketplace only
-- Mobile-first search screen
-- Search text, max price, location, and radius
-- Saved searches stored locally on the device
-- Facebook-specific seller, distance, condition, and posted-time fields
-- Duplicate and sold-listing filtering
-- Deal scoring based on price, freshness, distance, and seller rating
-- Direct links back to the original Facebook listing
-- Codespaces configuration for working from an iPhone
+- One-time Facebook login through Browserbase Live View
+- Browserbase Context persists your Facebook session across searches
+- Automated Facebook Marketplace search — no manual Facebook searching
+- Extracts visible Marketplace listing cards
+- Filters to your max price
+- Looks up MSRP references through Browserbase Search
+- Ranks primarily by percentage below MSRP
+- Shows the MSRP source and confidence so you can verify exact model matches
+- Saved searches
+- Installable iPhone PWA
+- Direct link to every Facebook listing
 
-## Live Facebook connection
+## Important limitations
 
-Facebook Marketplace does not provide a normal public search API for this use case.
+Facebook does not provide a normal public Marketplace search API. The app automates a normal browser session belonging to you. It does not bypass login, CAPTCHA, rate limits, or access controls. If Facebook asks for verification, use the Browserbase Live View and complete it yourself.
 
-This project therefore uses a separate authenticated-session ingestion endpoint. That endpoint can return listings the signed-in user is already allowed to access, but it must not bypass Facebook login, CAPTCHA, rate limits, access controls, or anti-bot protections.
+Marketplace search cards do not always expose exact model numbers, seller details, timestamps, or distance. MSRP matching is therefore best-effort. Always verify that the MSRP source is for the exact model before purchasing.
 
-Configure:
+## Required environment variables
+
+Get both from Browserbase Settings:
 
 ```env
-FACEBOOK_PROVIDER_ENDPOINT=
-FACEBOOK_PROVIDER_TOKEN=
+BROWSERBASE_API_KEY=
+BROWSERBASE_PROJECT_ID=
 ```
 
-The endpoint receives:
+Do not prefix them with `NEXT_PUBLIC_`; they are server-side secrets.
 
-```json
-{
-  "text": "couch",
-  "maxPrice": 500,
-  "location": "Norfolk, VA",
-  "radiusMiles": 25
-}
+## Deploy
+
+1. Import this GitHub repo into Vercel.
+2. Vercel should detect Next.js automatically.
+3. Add `BROWSERBASE_API_KEY` and `BROWSERBASE_PROJECT_ID` under Project Settings → Environment Variables.
+4. Deploy or redeploy.
+5. Open the production URL on your iPhone.
+6. Tap **Connect Facebook**.
+7. In Browserbase Live View, log into Facebook normally.
+8. Return to Deal Finder and tap **Done logging in**.
+9. Enter a product and tap **Find Best Deal**.
+10. In Safari Share → **Add to Home Screen**.
+
+The Browserbase Context ID is kept in the app's local storage on your device, so it does not need to be added to Vercel.
+
+## Local/Codespaces development
+
+```bash
+npm install
+npm run dev
 ```
 
-It may return either a raw array of listings or:
-
-```json
-{
-  "listings": []
-}
-```
-
-## Phone development
-
-Open this repo in GitHub Codespaces, keep `npm run dev` running, and open forwarded port 3000.
+Put the Browserbase credentials in `.env.local` while developing locally.
 
 ## Architecture
 
 ```text
 src/
   app/
-    api/search/route.ts
+    api/
+      facebook/connect/start/route.ts
+      facebook/connect/finish/route.ts
+      search/route.ts
     page.tsx
   lib/
+    browserbase.ts
+    msrp.ts
     scoring.ts
     types.ts
-  providers/
-    facebook/
-    index.ts
 ```
