@@ -2,18 +2,20 @@ import Browserbase from "@browserbasehq/sdk";
 import { chromium, type Page } from "playwright-core";
 import type { Listing, MarketplaceQuery } from "./types";
 
-function requiredEnv(name: "BROWSERBASE_API_KEY" | "BROWSERBASE_PROJECT_ID") {
+function requiredEnv(name: "BROWSERBASE_API_KEY") {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is not configured`);
   return value;
 }
+
+const DEFAULT_BROWSERBASE_PROJECT_ID = "d1281f7d-b2e2-4210-9311-73282d457c72";
 
 export function getBrowserbase() {
   return new Browserbase({ apiKey: requiredEnv("BROWSERBASE_API_KEY") });
 }
 
 export function getProjectId() {
-  return requiredEnv("BROWSERBASE_PROJECT_ID");
+  return process.env.BROWSERBASE_PROJECT_ID || DEFAULT_BROWSERBASE_PROJECT_ID;
 }
 
 export async function startFacebookLogin() {
