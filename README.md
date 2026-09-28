@@ -1,80 +1,93 @@
 # Facebook Marketplace Deal Finder
 
-A phone-first PWA that automatically searches Facebook Marketplace through a Browserbase cloud browser, extracts the listings visible to your own authenticated Facebook account, looks up MSRP references on the web, and ranks the strongest discount first.
+Deal Finder is now built around a **local Safari Web Extension**, not a cloud Facebook login.
 
-## What it does
+## How the finished flow works
 
-- One-time Facebook login through Browserbase Live View
-- Browserbase Context persists your Facebook session across searches
-- Automated Facebook Marketplace search — no manual Facebook searching
-- Extracts visible Marketplace listing cards
-- Filters to your max price
-- Looks up MSRP references through Browserbase Search
-- Ranks primarily by percentage below MSRP
-- Shows the MSRP source and confidence so you can verify exact model matches
-- Saved searches
-- Installable iPhone PWA
-- Direct link to every Facebook listing
+1. Open Deal Finder on iPhone/iPad.
+2. Enter a Marketplace search and tap **Find Best Deal**.
+3. Deal Finder opens Facebook Marketplace in Safari with the search already filled in.
+4. The Safari extension runs inside your normal logged-in Facebook session.
+5. It automatically scrolls the Marketplace results and extracts the visible listing cards.
+6. It stores those listings inside the extension, returns Safari to Deal Finder, and hands the listings back to the app.
+7. Deal Finder looks up MSRP references and ranks the strongest discount first.
 
-## Important limitations
+Your Facebook password/cookies never go through Deal Finder or Browserbase.
 
-Facebook does not provide a normal public Marketplace search API. The app automates a normal browser session belonging to you. It does not bypass login, CAPTCHA, rate limits, or access controls. If Facebook asks for verification, use the Browserbase Live View and complete it yourself.
+## Repository layout
 
-Marketplace search cards do not always expose exact model numbers, seller details, timestamps, or distance. MSRP matching is therefore best-effort. Always verify that the MSRP source is for the exact model before purchasing.
+```text
+extension/
+  manifest.json
+  background.js
+  content-facebook.js
+  content-app.js
 
-## Required environment variable
+scripts/
+  make-ios-extension.sh
 
-The Browserbase project ID is already wired into the app. You only need to provide the API key at runtime:
+src/
+  app/
+    api/search/route.ts
+    page.tsx
+  lib/
+    msrp.ts
+    scoring.ts
+    types.ts
+```
+
+## MSRP lookup
+
+The app currently uses Browserbase Search only for public web/MSRP lookup. It does **not** use Browserbase for Facebook.
+
+Runtime secret:
 
 ```env
 BROWSERBASE_API_KEY=
 ```
 
-Optional project override:
+If the key is absent, Marketplace importing still works; MSRP enrichment will simply be unavailable.
 
-```env
-BROWSERBASE_PROJECT_ID=d1281f7d-b2e2-4210-9311-73282d457c72
-```
-
-Do not prefix either value with `NEXT_PUBLIC_`; the API key must remain server-side.
-
-## Deploy
-
-1. Import this GitHub repo into Vercel.
-2. Vercel should detect Next.js automatically.
-3. Add `BROWSERBASE_API_KEY` under Project Settings → Environment Variables. The project ID is already configured in the app.
-4. Deploy or redeploy.
-5. Open the production URL on your iPhone.
-6. Tap **Connect Facebook**.
-7. In Browserbase Live View, log into Facebook normally.
-8. Return to Deal Finder and tap **Done logging in**.
-9. Enter a product and tap **Find Best Deal**.
-10. In Safari Share → **Add to Home Screen**.
-
-The Browserbase Context ID is kept in the app's local storage on your device, so it does not need to be added to Vercel.
-
-## Local/Codespaces development
+## Local web development
 
 ```bash
 npm install
 npm run dev
 ```
 
-Put the Browserbase credentials in `.env.local` while developing locally.
+## Create the iPhone/iPad Safari extension
 
-## Architecture
+Apple requires iOS Safari Web Extensions to be wrapped in an iOS app project and signed.
 
-```text
-src/
-  app/
-    api/
-      facebook/connect/start/route.ts
-      facebook/connect/finish/route.ts
-      search/route.ts
-    page.tsx
-  lib/
-    browserbase.ts
-    msrp.ts
-    scoring.ts
-    types.ts
+On a Mac with Xcode:
+
+```bash
+chmod +x scripts/make-ios-extension.sh
+./scripts/make-ios-extension.sh
 ```
+
+That generates an Xcode project in `ios/`.
+
+Then:
+
+1. Open the generated project in Xcode.
+2. Select your Apple Developer team.
+3. Run it on the iPhone/iPad for testing, or archive/upload it to TestFlight.
+4. On the iPhone/iPad go to **Settings → Apps → Safari → Extensions** and enable **Deal Finder**.
+5. Allow access to Facebook and your Deal Finder site.
+
+## Deploy Deal Finder itself
+
+Deploy the Next.js repo to Vercel and set:
+
+```env
+BROWSERBASE_API_KEY=your_rotated_key
+```
+
+Then add the Vercel site to the iPhone/iPad Home Screen.
+
+## Notes
+
+Facebook can change its Marketplace HTML at any time. The scraper intentionally reads only listing cards rendered to your own authenticated browser session. It does not bypass login, CAPTCHA, rate limits, or Facebook access controls.
+
+MSRP matching is best-effort because Marketplace sellers often omit exact model numbers. Always verify the MSRP source before buying.
