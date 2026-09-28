@@ -88,7 +88,7 @@ export default function Home() {
     setLoginSessionId(json.sessionId);
     setLoginViewUrl(json.liveViewUrl);
     setConnecting(false);
-    window.open(json.liveViewUrl, "_blank", "noopener,noreferrer");
+    window.location.assign(json.liveViewUrl);
   }
 
   async function finishLogin() {
