@@ -2,13 +2,19 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-type Result = {
+type ImportedListing = {
   id: string;
+  provider: "Facebook Marketplace";
   title: string;
   price: number | null;
+  currency: string;
   url: string;
   imageUrl?: string;
   location?: string;
+  retrievedAt: string;
+};
+
+type Result = ImportedListing & {
   discountPct?: number;
   msrp?: {
     value: number;
@@ -32,33 +38,28 @@ type SearchResponse = {
   listings?: Result[];
   count?: number;
   msrpChecked?: number;
-  needsLogin?: boolean;
   error?: string;
 };
 
+type ExtensionPayload = {
+  token: string;
+  listings: ImportedListing[];
+  searchedUrl?: string;
+};
+
 const SEARCHES_KEY = "fb-deal-finder-searches";
-const CONTEXT_KEY = "fb-deal-finder-context";
+const PENDING_KEY = "fb-deal-finder-pending";
 
 export default function Home() {
   const [text, setText] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [location, setLocation] = useState("");
   const [radiusMiles, setRadiusMiles] = useState("25");
-  const [contextId, setContextId] = useState("");
-  const [loginSessionId, setLoginSessionId] = useState("");
-  const [loginViewUrl, setLoginViewUrl] = useState("");
-  const [connecting, setConnecting] = useState(false);
+  const [extensionReady, setExtensionReady] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState("Ready");
   const [data, setData] = useState<SearchResponse | null>(null);
   const [saved, setSaved] = useState<SavedSearch[]>([]);
-
-  useEffect(() => {
-    try {
-      setContextId(localStorage.getItem(CONTEXT_KEY) ?? "");
-      const raw = localStorage.getItem(SEARCHES_KEY);
-      if (raw) setSaved(JSON.parse(raw));
-    } catch {}
-  }, []);
 
   const query = useMemo(
     () => ({
@@ -70,56 +71,83 @@ export default function Home() {
     [text, maxPrice, location, radiusMiles]
   );
 
-  async function connectFacebook() {
-    setConnecting(true);
-    setData(null);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SEARCHES_KEY);
+      if (raw) setSaved(JSON.parse(raw));
+    } catch {}
 
-    const res = await fetch("/api/facebook/connect/start", { method: "POST" });
-    const json = await res.json();
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== window) return;
+      const message = event.data;
+      if (!message || message.source !== "deal-finder-safari-extension") return;
 
-    if (!res.ok) {
-      setData({ error: json.error ?? "Could not start Facebook login" });
-      setConnecting(false);
-      return;
-    }
+      if (message.type === "DF_EXTENSION_READY") {
+        setExtensionReady(true);
+        return;
+      }
 
-    localStorage.setItem(CONTEXT_KEY, json.contextId);
-    setContextId(json.contextId);
-    setLoginSessionId(json.sessionId);
-    setLoginViewUrl(json.liveViewUrl);
-    setConnecting(false);
-    window.location.assign(json.liveViewUrl);
-  }
+      if (message.type === "DF_RESULTS") {
+        void consumeExtensionResults(message.payload as ExtensionPayload);
+      }
+    };
 
-  async function finishLogin() {
-    if (!loginSessionId) return;
+    window.addEventListener("message", onMessage);
+    window.postMessage({ source: "deal-finder-page", type: "DF_PING" }, "*");
 
-    await fetch("/api/facebook/connect/finish", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sessionId: loginSessionId })
-    });
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
 
-    setLoginSessionId("");
-    setLoginViewUrl("");
-  }
+  async function consumeExtensionResults(payload: ExtensionPayload) {
+    const pendingRaw = localStorage.getItem(PENDING_KEY);
+    if (!pendingRaw) return;
 
-  async function search(e?: FormEvent) {
-    e?.preventDefault();
-    if (!query.text || !contextId) return;
+    const pending = JSON.parse(pendingRaw);
+    if (!payload?.token || payload.token !== pending.token) return;
+
+    setText(pending.query.text ?? "");
+    setMaxPrice(pending.query.maxPrice?.toString() ?? "");
+    setLocation(pending.query.location ?? "");
+    setRadiusMiles(pending.query.radiusMiles?.toString() ?? "25");
 
     setLoading(true);
+    setStatus(`Imported ${payload.listings.length} Facebook listings. Checking MSRP…`);
     setData(null);
 
     const res = await fetch("/api/search", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ contextId, ...query })
+      body: JSON.stringify({
+        ...pending.query,
+        listings: payload.listings
+      })
     });
 
     const json = await res.json();
     setData(json);
     setLoading(false);
+    setStatus(json.error ? "Ranking failed" : `Ranked ${json.count ?? 0} listings`);
+    localStorage.removeItem(PENDING_KEY);
+  }
+
+  function launchFacebookSearch(e?: FormEvent) {
+    e?.preventDefault();
+    if (!query.text) return;
+
+    const token = crypto.randomUUID();
+    localStorage.setItem(PENDING_KEY, JSON.stringify({ token, query }));
+
+    const params = new URLSearchParams({ query: query.text });
+    if (query.maxPrice) params.set("maxPrice", String(Math.floor(query.maxPrice)));
+
+    const hash = new URLSearchParams({
+      df: "1",
+      token,
+      return: window.location.origin
+    });
+
+    setStatus("Opening Facebook Marketplace…");
+    window.location.href = `https://www.facebook.com/marketplace/search/?${params.toString()}#${hash.toString()}`;
   }
 
   function saveCurrentSearch() {
@@ -145,56 +173,18 @@ export default function Home() {
         <p className="text-xs font-bold tracking-[0.2em] text-blue-400">FACEBOOK MARKETPLACE</p>
         <h1 className="mt-2 text-3xl font-bold">Deal Finder</h1>
         <p className="mt-2 text-sm text-zinc-400">
-          Search Marketplace automatically and rank listings by their discount from MSRP.
+          Search Marketplace through your local Safari login, import listings automatically, and rank them against MSRP.
         </p>
       </header>
 
-      {!contextId && (
-        <section className="mb-5 rounded-2xl border border-blue-500/40 bg-blue-500/10 p-4">
-          <h2 className="font-semibold">Connect Facebook once</h2>
-          <p className="mt-1 text-sm text-zinc-400">
-            A private cloud browser opens. Log into Facebook yourself; your password is never entered into Deal Finder.
-          </p>
-          <button
-            onClick={connectFacebook}
-            disabled={connecting}
-            className="mt-3 w-full rounded-xl bg-blue-500 px-4 py-3 font-semibold text-white disabled:opacity-50"
-          >
-            {connecting ? "Starting browser…" : "Connect Facebook"}
-          </button>
-        </section>
-      )}
+      <div className="mb-5 flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-sm">
+        <span className={extensionReady ? "text-emerald-400" : "text-amber-400"}>
+          {extensionReady ? "● Safari extension connected" : "● Safari extension not detected"}
+        </span>
+        <span className="text-xs text-zinc-500">{status}</span>
+      </div>
 
-      {contextId && !loginSessionId && (
-        <div className="mb-5 flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-sm">
-          <span className="text-emerald-400">● Facebook connection saved</span>
-          <button onClick={connectFacebook} className="text-xs text-zinc-400">Reconnect</button>
-        </div>
-      )}
-
-      {loginSessionId && (
-        <section className="mb-5 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
-          <h2 className="font-semibold">Finish Facebook login</h2>
-          <p className="mt-1 text-sm text-zinc-400">
-            Log in in the cloud-browser tab. When Facebook is fully open, come back here and tap Done.
-          </p>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <a
-              href={loginViewUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-xl border border-zinc-700 px-4 py-3 text-center font-semibold"
-            >
-              Open login
-            </a>
-            <button onClick={finishLogin} className="rounded-xl bg-white px-4 py-3 font-semibold text-black">
-              Done logging in
-            </button>
-          </div>
-        </section>
-      )}
-
-      <form onSubmit={search} className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+      <form onSubmit={launchFacebookSearch} className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
         <input
           className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none"
           placeholder="What are you looking for? — Roomba, OLED TV..."
@@ -220,16 +210,17 @@ export default function Home() {
         </div>
         <input
           className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none"
-          placeholder="Location (reference)"
+          placeholder="Location (Facebook still controls final area)"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
         />
+
         <div className="grid grid-cols-[1fr_auto] gap-2">
           <button
-            disabled={loading || !contextId}
+            disabled={loading}
             className="rounded-xl bg-blue-500 px-4 py-3 font-semibold text-white disabled:opacity-40"
           >
-            {loading ? "Searching + checking MSRP…" : "Find Best Deal"}
+            {loading ? "Checking MSRP…" : "Find Best Deal"}
           </button>
           <button
             type="button"
@@ -239,9 +230,12 @@ export default function Home() {
             Save
           </button>
         </div>
-        <p className="text-xs leading-5 text-zinc-500">
-          Marketplace location is primarily controlled by the location saved in your Facebook Marketplace account.
-        </p>
+
+        {!extensionReady && (
+          <p className="text-xs leading-5 text-amber-400">
+            Install and enable the Deal Finder Safari extension before running a search. The app can still be developed without it.
+          </p>
+        )}
       </form>
 
       {saved.length > 0 && (
@@ -265,16 +259,9 @@ export default function Home() {
         </section>
       )}
 
-      {data?.needsLogin && (
-        <div className="mt-5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
-          <p className="font-semibold">Facebook login expired.</p>
-          <button onClick={connectFacebook} className="mt-2 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black">
-            Reconnect Facebook
-          </button>
-        </div>
+      {data?.error && (
+        <p className="mt-5 rounded-xl border border-red-900 bg-red-950/30 p-3 text-red-300">{data.error}</p>
       )}
-
-      {data?.error && <p className="mt-5 rounded-xl border border-red-900 bg-red-950/30 p-3 text-red-300">{data.error}</p>}
 
       {best && (
         <section className="mt-6 rounded-3xl border border-blue-500/40 bg-blue-500/10 p-5">
@@ -348,12 +335,6 @@ export default function Home() {
           </a>
         ))}
       </section>
-
-      {data && !data.error && !data.needsLogin && (data.listings?.length ?? 0) === 0 && (
-        <div className="mt-6 rounded-2xl border border-zinc-800 p-5 text-zinc-400">
-          No Marketplace cards were found for this search. Facebook may have changed its results layout, or there may be no matching listings.
-        </div>
-      )}
     </main>
   );
 }
