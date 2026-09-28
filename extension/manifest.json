@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Deal Finder Bridge",
+  "version": "1.0.0",
+  "description": "Imports Facebook Marketplace results from your local Safari session into Deal Finder.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.facebook.com/*",
+    "https://*.facebook.com/*",
+    "https://*.vercel.app/*",
+    "https://*.app.github.dev/*",
+    "http://localhost:*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.facebook.com/marketplace/*", "https://*.facebook.com/marketplace/*"],
+      "js": ["content-facebook.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.vercel.app/*", "https://*.app.github.dev/*", "http://localhost:*/*"],
+      "js": ["content-app.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Deal Finder"
+  }
+}
