@@ -15,47 +15,48 @@ const schema = z.object({
 export async function POST(req: Request) {
   try {
     const query = schema.parse(await req.json());
-    const providers = getProviders();
+    const [provider] = getProviders();
+    const status = await provider.isAvailable();
 
-    const statuses = await Promise.all(providers.map((p) => p.isAvailable()));
+    if (!status.available) {
+      return NextResponse.json({
+        query,
+        status,
+        count: 0,
+        listings: []
+      });
+    }
 
-    const settled = await Promise.allSettled(
-      providers.map(async (provider) => {
-        const status = statuses.find((s) => s.name === provider.name);
-        if (!status?.available) return [];
-        return provider.search(query);
-      })
-    );
-
-    const errors: string[] = [];
-    const listings = settled.flatMap((result, i) => {
-      if (result.status === "fulfilled") return result.value;
-      errors.push(`${providers[i].name}: ${String(result.reason)}`);
-      return [];
-    });
+    const listings = await provider.search(query);
 
     const seen = new Set<string>();
     const normalized = listings
       .filter((x) => {
-        const key = `${x.provider}|${x.id}|${x.url}`;
+        const key = `${x.id}|${x.url}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       })
+      .filter((x) => !x.isSold)
       .filter((x) => query.maxPrice === undefined || x.price === null || x.price <= query.maxPrice)
+      .filter(
+        (x) =>
+          query.radiusMiles === undefined ||
+          x.distanceMiles === undefined ||
+          x.distanceMiles <= query.radiusMiles
+      )
       .map((x) => scoreListing(x, query.maxPrice))
       .sort((a, b) => b.dealScore - a.dealScore);
 
     return NextResponse.json({
       query,
-      statuses,
-      errors,
+      status,
       count: normalized.length,
       listings: normalized
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Search failed" },
+      { error: error instanceof Error ? error.message : "Facebook Marketplace search failed" },
       { status: 400 }
     );
   }
