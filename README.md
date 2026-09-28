@@ -1,50 +1,54 @@
-# Facebook Marketplace Tool
+# Facebook Marketplace Deal Finder
 
-Phone-friendly marketplace aggregator built for GitHub Codespaces.
+A phone-first Facebook Marketplace search and deal-ranking app built with Next.js, TypeScript, Tailwind, and GitHub Codespaces.
 
-## What this version does
+## Current features
 
-- Next.js + TypeScript + Tailwind
-- Mobile-first search UI
-- Hard max-price filtering
-- Provider abstraction (`MarketplaceProvider`)
-- Real eBay Browse API provider
-- Facebook Marketplace provider adapter for a compliant endpoint you control
-- No fake production listings
-- Provider health/status reporting
-- Normalized listing format
-- Deduplication
-- Freshness-aware deal scoring
-- Codespaces devcontainer
+- Facebook Marketplace only
+- Mobile-first search screen
+- Search text, max price, location, and radius
+- Saved searches stored locally on the device
+- Facebook-specific seller, distance, condition, and posted-time fields
+- Duplicate and sold-listing filtering
+- Deal scoring based on price, freshness, distance, and seller rating
+- Direct links back to the original Facebook listing
+- Codespaces configuration for working from an iPhone
 
-## Facebook status
+## Live Facebook connection
 
-Facebook Marketplace does not provide a normal public Marketplace search API for this use case. This repo intentionally does **not** bypass Facebook login, CAPTCHA, rate limits, anti-bot systems, or private-account controls.
+Facebook Marketplace does not provide a normal public search API for this use case.
 
-`FacebookMarketplaceProvider` becomes active only when `FACEBOOK_PROVIDER_ENDPOINT` is configured to a lawful/compliant data source you control.
+This project therefore uses a separate authenticated-session ingestion endpoint. That endpoint can return listings the signed-in user is already allowed to access, but it must not bypass Facebook login, CAPTCHA, rate limits, access controls, or anti-bot protections.
 
-## Open on your phone with Codespaces
-
-1. Open this repo on GitHub.
-2. Tap **Code → Codespaces → Create codespace on main**.
-3. Codespaces installs dependencies automatically.
-4. Create `.env.local` from `.env.example`.
-5. Run:
-
-```bash
-npm run dev
-```
-
-6. Open the forwarded port `3000`.
-
-## Environment variables
+Configure:
 
 ```env
-EBAY_CLIENT_ID=
-EBAY_CLIENT_SECRET=
 FACEBOOK_PROVIDER_ENDPOINT=
 FACEBOOK_PROVIDER_TOKEN=
 ```
+
+The endpoint receives:
+
+```json
+{
+  "text": "couch",
+  "maxPrice": 500,
+  "location": "Norfolk, VA",
+  "radiusMiles": 25
+}
+```
+
+It may return either a raw array of listings or:
+
+```json
+{
+  "listings": []
+}
+```
+
+## Phone development
+
+Open this repo in GitHub Codespaces, keep `npm run dev` running, and open forwarded port 3000.
 
 ## Architecture
 
@@ -57,7 +61,6 @@ src/
     scoring.ts
     types.ts
   providers/
-    index.ts
-    ebay/
     facebook/
+    index.ts
 ```
