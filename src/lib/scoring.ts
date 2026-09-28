@@ -12,10 +12,10 @@ export function scoreListing(listing: Listing, maxPrice?: number): ScoredListing
   if (listing.price !== null && maxPrice !== undefined) {
     if (listing.price <= maxPrice * 0.5) {
       score += 25;
-      reasons.push("Far below your max budget");
+      reasons.push("Way under budget");
     } else if (listing.price <= maxPrice * 0.8) {
       score += 15;
-      reasons.push("Comfortably under budget");
+      reasons.push("Good price for your budget");
     } else if (listing.price <= maxPrice) {
       score += 5;
       reasons.push("Within budget");
@@ -28,10 +28,33 @@ export function scoreListing(listing: Listing, maxPrice?: number): ScoredListing
   if (listing.postedAt) {
     const ageMs = Date.now() - new Date(listing.postedAt).getTime();
     const ageHours = ageMs / 3_600_000;
-    if (Number.isFinite(ageHours) && ageHours <= 24) {
+    if (Number.isFinite(ageHours) && ageHours <= 6) {
+      score += 15;
+      reasons.push("Very fresh listing");
+    } else if (Number.isFinite(ageHours) && ageHours <= 24) {
       score += 10;
-      reasons.push("Fresh listing");
+      reasons.push("Posted today");
     }
+  }
+
+  if (listing.distanceMiles !== undefined) {
+    if (listing.distanceMiles <= 5) {
+      score += 10;
+      reasons.push("Very close");
+    } else if (listing.distanceMiles <= 15) {
+      score += 5;
+      reasons.push("Nearby");
+    }
+  }
+
+  if (listing.sellerRating !== undefined && listing.sellerRating >= 4.5) {
+    score += 5;
+    reasons.push("Highly rated seller");
+  }
+
+  if (listing.isSold) {
+    score = 0;
+    reasons.push("Marked sold");
   }
 
   return {
