@@ -61,7 +61,19 @@ export default function Home() {
     [text, maxPrice, location, radiusMiles]
   );
 
-  async function runSearch(e?: FormEvent) {
+  function buildFacebookUrl() {
+    const params = new URLSearchParams();
+    params.set("query", query.text);
+    if (query.maxPrice) params.set("maxPrice", String(query.maxPrice));
+    return `https://www.facebook.com/marketplace/search/?${params.toString()}`;
+  }
+
+  function openFacebookSearch() {
+    if (!query.text) return;
+    window.location.href = buildFacebookUrl();
+  }
+
+  async function runConnectedSearch(e?: FormEvent) {
     e?.preventDefault();
     if (!query.text) return;
 
@@ -108,11 +120,11 @@ export default function Home() {
         <p className="text-xs font-bold tracking-[0.2em] text-blue-400">FACEBOOK MARKETPLACE</p>
         <h1 className="mt-2 text-3xl font-bold">Deal Finder</h1>
         <p className="mt-2 text-sm text-zinc-400">
-          Search your connected Facebook Marketplace session and rank the strongest listings first.
+          Build the search here, jump straight into Facebook Marketplace, then bring listings back for ranking.
         </p>
       </header>
 
-      <form onSubmit={runSearch} className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+      <form onSubmit={runConnectedSearch} className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
         <input
           className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none"
           placeholder="Search Marketplace — couch, TV, Roomba..."
@@ -145,12 +157,21 @@ export default function Home() {
           onChange={(e) => setLocation(e.target.value)}
         />
 
+        <button
+          type="button"
+          onClick={openFacebookSearch}
+          disabled={!query.text}
+          className="rounded-xl bg-blue-500 px-4 py-3 font-semibold text-white disabled:opacity-40"
+        >
+          Open Facebook Search
+        </button>
+
         <div className="grid grid-cols-[1fr_auto] gap-2">
           <button
-            className="rounded-xl bg-blue-500 px-4 py-3 font-semibold text-white disabled:opacity-50"
+            className="rounded-xl border border-zinc-700 px-4 py-3 font-semibold disabled:opacity-50"
             disabled={loading}
           >
-            {loading ? "Searching Facebook…" : "Search Facebook"}
+            {loading ? "Checking connection…" : "Search Connected Session"}
           </button>
           <button
             type="button"
@@ -160,6 +181,10 @@ export default function Home() {
             Save
           </button>
         </div>
+
+        <p className="text-xs leading-5 text-zinc-500">
+          The Facebook link passes your search text and max price. Facebook may keep location and radius from your Marketplace account settings.
+        </p>
       </form>
 
       {saved.length > 0 && (
@@ -246,7 +271,7 @@ export default function Home() {
           <div className="rounded-2xl border border-zinc-800 p-5 text-zinc-400">
             {data.status?.available
               ? "No matching Facebook Marketplace listings came back."
-              : "The Facebook-only app is ready. The next step is connecting your authenticated Marketplace session."}
+              : "The app can launch Facebook searches now. Listing import/connected-session ingestion is the next piece."}
           </div>
         )}
       </section>
