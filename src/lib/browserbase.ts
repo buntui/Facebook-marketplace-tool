@@ -25,7 +25,9 @@ export async function startFacebookLogin() {
   const context = await bb.contexts.create({ projectId });
   const session = await bb.sessions.create({
     projectId,
-    browserContext: { id: context.id, persist: true },
+    browserSettings: {
+      context: { id: context.id, persist: true }
+    },
     keepAlive: true,
     api_timeout: 600
   });
@@ -130,7 +132,9 @@ export async function searchFacebookMarketplace(
 
   const session = await bb.sessions.create({
     projectId,
-    browserContext: { id: contextId, persist: true },
+    browserSettings: {
+      context: { id: contextId, persist: true }
+    },
     api_timeout: 120
   });
 
