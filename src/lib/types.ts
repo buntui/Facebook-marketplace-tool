@@ -5,6 +5,14 @@ export type MarketplaceQuery = {
   radiusMiles?: number;
 };
 
+export type MsrpMatch = {
+  value: number;
+  currency: "USD";
+  confidence: "high" | "medium" | "low";
+  sourceTitle: string;
+  sourceUrl: string;
+};
+
 export type Listing = {
   id: string;
   provider: "Facebook Marketplace";
@@ -24,16 +32,11 @@ export type Listing = {
   category?: string;
   isSold?: boolean;
   retrievedAt: string;
+  msrp?: MsrpMatch;
+  discountPct?: number;
 };
 
-export type ProviderStatus = {
-  name: string;
-  available: boolean;
-  reason?: string;
+export type ScoredListing = Listing & {
+  dealScore: number;
+  reasons: string[];
 };
-
-export interface MarketplaceProvider {
-  name: string;
-  isAvailable(): Promise<ProviderStatus>;
-  search(query: MarketplaceQuery): Promise<Listing[]>;
-}
