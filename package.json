@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@browserbasehq/sdk": "2.21.0",
+    "chromium-bidi": "12.1.0",
+    "devtools-protocol": "0.0.1495869",
     "next": "14.2.15",
     "playwright-core": "1.63.0",
     "react": "18.3.1",
