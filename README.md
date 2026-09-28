@@ -22,22 +22,27 @@ Facebook does not provide a normal public Marketplace search API. The app automa
 
 Marketplace search cards do not always expose exact model numbers, seller details, timestamps, or distance. MSRP matching is therefore best-effort. Always verify that the MSRP source is for the exact model before purchasing.
 
-## Required environment variables
+## Required environment variable
 
-Get both from Browserbase Settings:
+The Browserbase project ID is already wired into the app. You only need to provide the API key at runtime:
 
 ```env
 BROWSERBASE_API_KEY=
-BROWSERBASE_PROJECT_ID=
 ```
 
-Do not prefix them with `NEXT_PUBLIC_`; they are server-side secrets.
+Optional project override:
+
+```env
+BROWSERBASE_PROJECT_ID=d1281f7d-b2e2-4210-9311-73282d457c72
+```
+
+Do not prefix either value with `NEXT_PUBLIC_`; the API key must remain server-side.
 
 ## Deploy
 
 1. Import this GitHub repo into Vercel.
 2. Vercel should detect Next.js automatically.
-3. Add `BROWSERBASE_API_KEY` and `BROWSERBASE_PROJECT_ID` under Project Settings → Environment Variables.
+3. Add `BROWSERBASE_API_KEY` under Project Settings → Environment Variables. The project ID is already configured in the app.
 4. Deploy or redeploy.
 5. Open the production URL on your iPhone.
 6. Tap **Connect Facebook**.
