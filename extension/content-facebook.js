@@ -2,6 +2,10 @@
   const DASHBOARD = "https://buntui.github.io/Facebook-marketplace-tool/";
   const MAX_CARDS = 100;
   const DELAY = 1100;
+  const SEARCH_QUERY = new URL(location.href).searchParams.get("query") || "";
+  const QUERY_STOP_WORDS = new Set(["a", "an", "and", "for", "from", "in", "of", "on", "the", "to", "with", "used", "old", "new"]);
+  const QUERY_TOKENS = [...new Set(SEARCH_QUERY.toLowerCase().match(/[a-z0-9]+/g) || [])]
+    .filter(token => token.length > 1 && !QUERY_STOP_WORDS.has(token));
   let running = false;
 
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -19,6 +23,11 @@
     return candidates[0] || lines[0] || "Untitled listing";
   }
 
+  function matchesRequestedTerms(text) {
+    const words = String(text || "").toLowerCase();
+    return QUERY_TOKENS.every(token => words.includes(token));
+  }
+
   function locationFromLines(lines) {
     const withState = lines.filter((line) => /,\s*[A-Z]{2}\b/.test(line));
     return withState[withState.length - 1];
@@ -34,6 +43,7 @@
 
       const text = (a.innerText || a.textContent || "").trim();
       if (!text) continue;
+      if (!matchesRequestedTerms(text)) continue;
 
       const lines = text.split("\n").map((x) => x.trim()).filter(Boolean);
       const title = titleFromLines(lines);
@@ -102,7 +112,7 @@
 
     const listings = collect(found);
     const handoff = DealAnalyze.encodeHandoff(listings, { maxChars: 30000 });
-    const diag = { runId: String(started), host: location.host, userAgent: navigator.userAgent, layout: innerWidth < 700 ? "mobile" : "desktop", scrollTarget: firstScroller.tagName + (firstScroller.getAttribute("role") ? "[role=" + firstScroller.getAttribute("role") + "]" : "") + " h=" + firstScroller.clientHeight + "/" + firstScroller.scrollHeight, records: listings, uniqueCount: listings.length, rounds, stopReason: reason, durationMs: Date.now() - started, retries: 0, handoff: { method: "fragment", receivedCount: handoff.sent, expectedCount: handoff.sent, checksumOk: true, capped: handoff.capped, chars: handoff.chars, reason: handoff.reason } };
+    const diag = { runId: String(started), host: location.host, userAgent: navigator.userAgent, layout: innerWidth < 700 ? "mobile" : "desktop", query: SEARCH_QUERY, requiredTerms: QUERY_TOKENS, scrollTarget: firstScroller.tagName + (firstScroller.getAttribute("role") ? "[role=" + firstScroller.getAttribute("role") + "]" : "") + " h=" + firstScroller.clientHeight + "/" + firstScroller.scrollHeight, records: listings, uniqueCount: listings.length, rounds, stopReason: reason, durationMs: Date.now() - started, retries: 0, handoff: { method: "fragment", receivedCount: handoff.sent, expectedCount: handoff.sent, checksumOk: true, capped: handoff.capped, chars: handoff.chars, reason: handoff.reason } };
     const target = new URL(DASHBOARD);
     target.hash = handoff.fragment + "&diag=" + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(diag)))));
     location.assign(target.toString());
