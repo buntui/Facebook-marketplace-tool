@@ -51,25 +51,6 @@
     return [...found.values()].slice(0, MAX_CARDS);
   }
 
-  function resultScroller() {
-    const card = document.querySelector('a[href*="/marketplace/item/"]');
-    let node = card;
-    while (node && node !== document.body) {
-      const style = getComputedStyle(node);
-      if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 120) return node;
-      node = node.parentElement;
-    }
-    return document.scrollingElement || document.documentElement;
-  }
-
-  function scrollResults() {
-    const target = resultScroller();
-    const amount = Math.max(target.clientHeight * 1.35, 900);
-    if (typeof target.scrollBy === "function") target.scrollBy({ top: amount, behavior: "smooth" });
-    else target.scrollTop += amount;
-    if (target !== document.scrollingElement) window.scrollBy({ top: amount, behavior: "smooth" });
-  }
-
   async function run() {
     if (running) return;
     running = true;
@@ -80,15 +61,14 @@
     const rounds = [];
     const found = new Map();
     collect(found);
-    const firstScroller = resultScroller();
     let stableRounds = 0;
 
     let reason = "round_limit";
-    for (let i = 0; i < 40; i += 1) {
+    for (let i = 0; i < 28; i += 1) {
       const security = blocked();
       if (security) { reason = security; break; }
-      scrollResults();
-      await sleep(1450);
+      window.scrollBy({ top: Math.max(window.innerHeight * 1.8, 1400), behavior: "smooth" });
+      await sleep(DELAY);
 
       const before = found.size;
       const listings = collect(found);
@@ -97,12 +77,12 @@
       stableRounds = found.size === before ? stableRounds + 1 : 0;
 
       if (count >= MAX_CARDS) { reason = "cap"; break; }
-      if (stableRounds >= 4) { reason = "no_growth"; break; }
+      if (stableRounds >= 2) { reason = "no_growth"; break; }
     }
 
     const listings = collect(found);
     const handoff = DealAnalyze.encodeHandoff(listings, { maxChars: 30000 });
-    const diag = { runId: String(started), host: location.host, userAgent: navigator.userAgent, layout: innerWidth < 700 ? "mobile" : "desktop", scrollTarget: firstScroller.tagName + (firstScroller.getAttribute("role") ? "[role=" + firstScroller.getAttribute("role") + "]" : "") + " h=" + firstScroller.clientHeight + "/" + firstScroller.scrollHeight, records: listings, uniqueCount: listings.length, rounds, stopReason: reason, durationMs: Date.now() - started, retries: 0, handoff: { method: "fragment", receivedCount: handoff.sent, expectedCount: handoff.sent, checksumOk: true, capped: handoff.capped, chars: handoff.chars, reason: handoff.reason } };
+    const diag = { runId: String(started), host: location.host, userAgent: navigator.userAgent, layout: innerWidth < 700 ? "mobile" : "desktop", records: listings, uniqueCount: listings.length, rounds, stopReason: reason, durationMs: Date.now() - started, retries: 0, handoff: { method: "fragment", receivedCount: handoff.sent, expectedCount: handoff.sent, checksumOk: true, capped: handoff.capped, chars: handoff.chars, reason: handoff.reason } };
     const target = new URL(DASHBOARD);
     target.hash = handoff.fragment + "&diag=" + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(diag)))));
     location.assign(target.toString());
