@@ -1,8 +1,8 @@
 name: Package Orion extension
 on:
   push:
-    branches: ["codex/orion-zero-cost"]
-    paths: ["extension/**", ".github/workflows/package-orion-extension.yml"]
+    branches: [main]
+    paths: [extension/**, .github/workflows/package-orion-extension.yml]
   workflow_dispatch:
 jobs:
   package:
