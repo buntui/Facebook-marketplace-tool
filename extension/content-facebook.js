@@ -24,16 +24,13 @@
     return withState[withState.length - 1];
   }
 
-  function scrape() {
+  function collect(found) {
     const anchors = [...document.querySelectorAll('a[href*="/marketplace/item/"]')];
-    const seen = new Set();
-    const listings = [];
 
     for (const a of anchors) {
       const href = a.href || "";
       const match = href.match(/\/marketplace\/item\/(\d+)/);
-      if (!match || seen.has(match[1])) continue;
-      seen.add(match[1]);
+      if (!match || found.has(match[1])) continue;
 
       const text = (a.innerText || a.textContent || "").trim();
       if (!text) continue;
@@ -42,7 +39,7 @@
       const title = titleFromLines(lines);
       if (!title || title.length < 2) continue;
 
-      listings.push({
+      found.set(match[1], {
         id: match[1],
         provider: "Facebook Marketplace",
         title,
@@ -51,8 +48,7 @@
         location: locationFromLines(lines)
       });
     }
-
-    return listings.slice(0, MAX_CARDS);
+    return [...found.values()].slice(0, MAX_CARDS);
   }
 
   async function run() {
@@ -63,27 +59,28 @@
     if (stopAtStart) { if (button) button.textContent = "Stopped: Facebook security page"; return; }
     const started = Date.now();
     const rounds = [];
-    let lastCount = scrape().length;
+    const found = new Map();
+    collect(found);
     let stableRounds = 0;
 
     let reason = "round_limit";
-    for (let i = 0; i < 14; i += 1) {
+    for (let i = 0; i < 28; i += 1) {
       const security = blocked();
       if (security) { reason = security; break; }
       window.scrollBy({ top: Math.max(window.innerHeight * 1.8, 1400), behavior: "smooth" });
       await sleep(DELAY);
 
-      const count = scrape().length;
+      const before = found.size;
+      const listings = collect(found);
+      const count = listings.length;
       rounds.push(count);
-      if (count === lastCount) stableRounds += 1;
-      else stableRounds = 0;
-      lastCount = count;
+      stableRounds = found.size === before ? stableRounds + 1 : 0;
 
       if (count >= MAX_CARDS) { reason = "cap"; break; }
       if (stableRounds >= 2) { reason = "no_growth"; break; }
     }
 
-    const listings = scrape();
+    const listings = collect(found);
     const handoff = DealAnalyze.encodeHandoff(listings, { maxChars: 30000 });
     const diag = { runId: String(started), host: location.host, userAgent: navigator.userAgent, layout: innerWidth < 700 ? "mobile" : "desktop", records: listings, uniqueCount: listings.length, rounds, stopReason: reason, durationMs: Date.now() - started, retries: 0, handoff: { method: "fragment", receivedCount: handoff.sent, expectedCount: handoff.sent, checksumOk: true, capped: handoff.capped, chars: handoff.chars, reason: handoff.reason } };
     const target = new URL(DASHBOARD);
