@@ -1,93 +1,36 @@
-# Facebook Marketplace Deal Finder
+# Deal Finder — zero-cost, local Marketplace importer
 
-Deal Finder is now built around a **local Safari Web Extension**, not a cloud Facebook login.
+This build has no API keys, backend, paid MSRP research, or hidden background bridge. Marketplace is the only importer. The dashboard labels prices only as **vs. local asking prices**—not as MSRP, sold price, or guaranteed value.
 
-## How the finished flow works
+## How it works
 
-1. Open Deal Finder on iPhone/iPad.
-2. Enter a Marketplace search and tap **Find Best Deal**.
-3. Deal Finder opens Facebook Marketplace in Safari with the search already filled in.
-4. The Safari extension runs inside your normal logged-in Facebook session.
-5. It automatically scrolls the Marketplace results and extracts the visible listing cards.
-6. It stores those listings inside the extension, returns Safari to Deal Finder, and hands the listings back to the app.
-7. Deal Finder looks up MSRP references and ranks the strongest discount first.
+1. The static dashboard opens a Facebook Marketplace search in Orion.
+2. You tap the visible **Import visible Marketplace results** button on Facebook.
+3. The extension gathers up to 100 rendered cards using a fixed delay, then sends a compact batch in the dashboard URL fragment.
+4. The dashboard validates the card count/checksum, removes the fragment, and stores only complete batches in Orion's own local storage.
 
-Your Facebook password/cookies never go through Deal Finder or Browserbase.
+No login, CAPTCHA, checkpoint, recovery, proxy, random timing, or anti-detection path is automated. A security page stops the importer and records it in diagnostics.
+
+## First-time setup on iPhone/iPad
+
+1. In the GitHub repo, go to **Settings → Pages → Build and deployment → Source**, then select **GitHub Actions**. This is required once for the free dashboard URL.
+2. Wait for the **Deploy local Deal Finder dashboard** Action to finish. Open `https://buntui.github.io/Facebook-marketplace-tool/` in **Orion**, not Safari.
+3. Download the repository ZIP in Files, unzip it, and install the `extension` folder through Orion's Extensions screen. Orion WebExtension support is experimental; this is the device-compatibility test.
+4. Sign into Facebook normally in Orion.
+5. Open the dashboard in Orion, search, tap the blue Import button on Marketplace, and wait for the return to the dashboard.
+
+## Diagnostics and limits
+
+- Qualification requires 50 unique cards on two of the latest three runs, **with no block in that window**.
+- A handoff that hits the URL-size cap is displayed as incomplete and is not saved or scored.
+- A median appears only with at least three other local comps.
+- History is limited to 30 days and about 2,000 saved cards.
+- If Orion fails to inject the blue Import button, use the copied diagnostics report before changing the extension.
 
 ## Repository layout
 
 ```text
-extension/
-  manifest.json
-  background.js
-  content-facebook.js
-  content-app.js
-
-scripts/
-  make-ios-extension.sh
-
-src/
-  app/
-    api/search/route.ts
-    page.tsx
-  lib/
-    msrp.ts
-    scoring.ts
-    types.ts
+docs/                 Static GitHub Pages dashboard
+extension/            Orion WebExtension: collector + local analysis
+.github/workflows/    Free GitHub Pages deployment
 ```
-
-## MSRP lookup
-
-The app currently uses Browserbase Search only for public web/MSRP lookup. It does **not** use Browserbase for Facebook.
-
-Runtime secret:
-
-```env
-BROWSERBASE_API_KEY=
-```
-
-If the key is absent, Marketplace importing still works; MSRP enrichment will simply be unavailable.
-
-## Local web development
-
-```bash
-npm install
-npm run dev
-```
-
-## Create the iPhone/iPad Safari extension
-
-Apple requires iOS Safari Web Extensions to be wrapped in an iOS app project and signed.
-
-On a Mac with Xcode:
-
-```bash
-chmod +x scripts/make-ios-extension.sh
-./scripts/make-ios-extension.sh
-```
-
-That generates an Xcode project in `ios/`.
-
-Then:
-
-1. Open the generated project in Xcode.
-2. Select your Apple Developer team.
-3. Run it on the iPhone/iPad for testing, or archive/upload it to TestFlight.
-4. On the iPhone/iPad go to **Settings → Apps → Safari → Extensions** and enable **Deal Finder**.
-5. Allow access to Facebook and your Deal Finder site.
-
-## Deploy Deal Finder itself
-
-Deploy the Next.js repo to Vercel and set:
-
-```env
-BROWSERBASE_API_KEY=your_rotated_key
-```
-
-Then add the Vercel site to the iPhone/iPad Home Screen.
-
-## Notes
-
-Facebook can change its Marketplace HTML at any time. The scraper intentionally reads only listing cards rendered to your own authenticated browser session. It does not bypass login, CAPTCHA, rate limits, or Facebook access controls.
-
-MSRP matching is best-effort because Marketplace sellers often omit exact model numbers. Always verify the MSRP source before buying.

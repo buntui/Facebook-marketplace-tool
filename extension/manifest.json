@@ -1,14 +1,16 @@
 {
   "manifest_version": 3,
-  "name": "Deal Finder Bridge",
+  "name": "Deal Finder — local Marketplace import",
   "version": "1.1.0",
-  "description": "Imports Facebook Marketplace search results into the zero-cost Deal Finder dashboard.",
-  "permissions": ["storage"],
-  "host_permissions": ["https://www.facebook.com/*","https://*.facebook.com/*","https://buntui.github.io/*","http://localhost:*/*"],
-  "background":{"service_worker":"background.js"},
-  "content_scripts":[
-    {"matches":["https://www.facebook.com/marketplace/*","https://*.facebook.com/marketplace/*"],"js":["content-facebook.js"],"run_at":"document_idle"},
-    {"matches":["https://buntui.github.io/*","http://localhost:*/*"],"js":["content-app.js"],"run_at":"document_idle"}
+  "description": "Collects Marketplace cards only when you tap Import, then opens your local-only dashboard.",
+  "content_scripts": [
+    {
+      "matches": ["https://www.facebook.com/*", "https://*.facebook.com/*"],
+      "js": ["analyze.js", "content-facebook.js"],
+      "run_at": "document_idle"
+    }
   ],
-  "action":{"default_title":"Deal Finder"}
+  "action": {
+    "default_title": "Deal Finder"
+  }
 }

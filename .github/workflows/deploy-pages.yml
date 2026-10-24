@@ -1,20 +1,16 @@
-name: Deploy Deal Finder
-
+name: Deploy local Deal Finder dashboard
 on:
   push:
     branches: [main]
-    paths: [docs/**, extension/**, .github/workflows/deploy-pages.yml]
+    paths: ['docs/**', '.github/workflows/deploy-pages.yml']
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
   group: pages
-  cancel-in-progress: true
-
+  cancel-in-progress: false
 jobs:
   deploy:
     environment:
